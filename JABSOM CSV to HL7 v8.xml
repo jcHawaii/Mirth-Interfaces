@@ -1,0 +1,379 @@
+<transformer version="3.9.1">
+  <elements>
+    <com.mirth.connect.plugins.javascriptstep.JavaScriptStep version="3.9.1">
+      <name>Stamp HL7 with each row from the CSV</name>
+      <sequenceNumber>0</sequenceNumber>
+      <enabled>true</enabled>
+      <script>//writen by Joem Costes
+// CSV Transformer for Jabsom CSV to ELR
+// last updated 10.7.2020
+// version 8
+
+function HL7Time(strtime) {
+	//0 is not passed in time value less than 10
+	//value in CSV 8:00 &gt; 80000 | 13:00 &gt; 130000	
+	if (strtime.replace(&apos;:&apos;,&apos;&apos;).length &lt; 4 ) { 
+		//logger.info(&apos;old time: &apos;+strtime);
+		//8:41 &gt; 084100
+		strtime = &apos;0&apos; + strtime.replace(&apos;:&apos;,&apos;&apos;) + &apos;00-1000&apos;;		
+		//logger.info(&apos;new time: &apos;+strtime);
+	} else {
+		//value in CSV13:00 &gt; 130000	
+		strtime = strtime.replace(&apos;:&apos;,&apos;&apos;) + &quot;00-1000&quot;;
+	}
+	return strtime;
+	}
+	
+//value in CSV 8:00 &gt; 80000 | 13:00 &gt; 130000
+	var orc_time = msg[&apos;row&apos;][&apos;column26&apos;].toString().replace(&apos;:&apos;,&apos;&apos;) + &apos;00&apos;;
+	//0 is not passed in time value less than 10
+	if (orc_time.length &lt; 5 ) { orc_time = &apos;0&apos; + orc_time;}
+
+
+//set values that are dynamic and are not in the OutBound Message Template		
+	//MSH segment
+	//time format 20201008173400-1000
+	tmp[&apos;MSH&apos;][&apos;MSH.7&apos;][&apos;MSH.7.1&apos;] = DateUtil.getCurrentDate(&apos;yyyyMMddHHmmss&apos;) + &apos;-1000&apos;;
+	tmp[&apos;MSH&apos;][&apos;MSH.8&apos;][&apos;MSH.8.1&apos;] = DateUtil.getCurrentDate(&apos;yyyyMMddHHmmss&apos;) + &apos;-1000&apos;;
+	
+	tmp[&apos;MSH&apos;][&apos;MSH.10&apos;][&apos;MSH.10.1&apos;] = UUIDGenerator.getUUID();
+
+	//force
+	tmp[&apos;MSH&apos;][&apos;MSH.2&apos;] = &quot;^~\\&amp;#&quot;;
+	
+	//SFT|1|8.6.3|Polytech LIS|8.6.3||20200824
+	tmp[&apos;SFT&apos;][&apos;SFT.1&apos;][&apos;SFT.1.1&apos;] = &quot;1&quot;;
+	tmp[&apos;SFT&apos;][&apos;SFT.2&apos;][&apos;SFT.2.1&apos;] = msg[&apos;row&apos;][&apos;column2&apos;].toString();
+	tmp[&apos;SFT&apos;][&apos;SFT.3&apos;][&apos;SFT.3.1&apos;] = msg[&apos;row&apos;][&apos;column3&apos;].toString()
+	tmp[&apos;SFT&apos;][&apos;SFT.4&apos;][&apos;SFT.4.1&apos;] = msg[&apos;row&apos;][&apos;column4&apos;].toString();
+	tmp[&apos;SFT&apos;][&apos;SFT.5&apos;][&apos;SFT.5.1&apos;] = &quot;&quot;;
+	tmp[&apos;SFT&apos;][&apos;SFT.6&apos;][&apos;SFT.6.1&apos;] = msg[&apos;row&apos;][&apos;column5&apos;].toString();
+
+	//PID segment
+	tmp[&apos;PID&apos;][&apos;PID.3&apos;][&apos;PID.3.1&apos;] = msg[&apos;row&apos;][&apos;column6&apos;].toString();
+	//MR Medical Record?
+	tmp[&apos;PID&apos;][&apos;PID.3&apos;][&apos;PID.3.5&apos;] = &quot;MR&quot;;	
+	//fullname
+	var fullname = msg[&apos;row&apos;][&apos;column7&apos;].toString();
+	//var partname = fullname.split(&quot;^&quot;);
+	//lastname
+	tmp[&apos;PID&apos;][&apos;PID.5&apos;][&apos;PID.5.1&apos;] = fullname.split(&quot;^&quot;)[0].toString();
+	//firstname
+	tmp[&apos;PID&apos;][&apos;PID.5&apos;][&apos;PID.5.2&apos;] = fullname.split(&quot;^&quot;)[1].toString();
+	//middleini
+	tmp[&apos;PID&apos;][&apos;PID.5&apos;][&apos;PID.5.3&apos;] = fullname.split(&quot;^&quot;)[2].toString();
+
+	logger.info(&apos;fullname: &apos;+ fullname.toString());	
+	logger.info(&apos;lastname: &apos;+ fullname.split(&quot;^&quot;)[0].toString());
+	logger.info(&apos;firstname: &apos;+ fullname.split(&quot;^&quot;)[1].toString());
+	logger.info(&apos;middleini: &apos;+ fullname.split(&quot;^&quot;)[2].toString());
+	
+	//dob
+	tmp[&apos;PID&apos;][&apos;PID.7&apos;][&apos;PID.7.1&apos;] = msg[&apos;row&apos;][&apos;column8&apos;].toString().replace(/-/g, &apos;&apos;);
+	//gender
+	tmp[&apos;PID&apos;][&apos;PID.8&apos;][&apos;PID.8.1&apos;] = msg[&apos;row&apos;][&apos;column9&apos;].toString();
+	//race loinc
+	tmp[&apos;PID&apos;][&apos;PID.10&apos;][&apos;PID.10.1&apos;] = msg[&apos;row&apos;][&apos;column10&apos;].toString();
+	//race
+	tmp[&apos;PID&apos;][&apos;PID.10&apos;][&apos;PID.10.2&apos;] = msg[&apos;row&apos;][&apos;column11&apos;].toString();
+	//race code
+	tmp[&apos;PID&apos;][&apos;PID.10&apos;][&apos;PID.10.3&apos;] = msg[&apos;row&apos;][&apos;column12&apos;].toString();	
+
+	//address
+	//300 LAOHA ST^^WAIKIKI^WA^98660^USA^H^^53011
+	tmp[&apos;PID&apos;][&apos;PID.11&apos;][&apos;PID.11.1&apos;] = msg[&apos;row&apos;][&apos;column13&apos;].toString();
+	tmp[&apos;PID&apos;][&apos;PID.11&apos;][&apos;PID.11.2&apos;] = msg[&apos;row&apos;][&apos;column14&apos;].toString();
+	tmp[&apos;PID&apos;][&apos;PID.11&apos;][&apos;PID.11.3&apos;] = msg[&apos;row&apos;][&apos;column15&apos;].toString();
+	tmp[&apos;PID&apos;][&apos;PID.11&apos;][&apos;PID.11.4&apos;] = msg[&apos;row&apos;][&apos;column16&apos;].toString();
+	tmp[&apos;PID&apos;][&apos;PID.11&apos;][&apos;PID.11.5&apos;] = msg[&apos;row&apos;][&apos;column17&apos;].toString();	
+	
+	//var phone =  + &apos;&apos; + msg[&apos;row&apos;][&apos;column19&apos;].toString()
+	//tmp[&apos;PID&apos;][&apos;PID.13&apos;][&apos;PID.13.1&apos;] = phone.toString();
+	
+	tmp[&apos;PID&apos;][&apos;PID.13&apos;][&apos;PID.13.2&apos;] = &quot;PRN&quot;;
+	tmp[&apos;PID&apos;][&apos;PID.13&apos;][&apos;PID.13.6&apos;] = msg[&apos;row&apos;][&apos;column18&apos;].toString();
+	tmp[&apos;PID&apos;][&apos;PID.13&apos;][&apos;PID.13.7&apos;] = msg[&apos;row&apos;][&apos;column19&apos;].toString();
+		
+	//tmp[&apos;PID&apos;][&apos;PID.14&apos;][&apos;PID.14.1&apos;] = msg[&apos;work_phone&apos;].toString();
+	//tmp[&apos;PID&apos;][&apos;PID.15&apos;][&apos;PID.15.1&apos;] = msg[&apos;preferred_language&apos;].toString();	
+	tmp[&apos;PID&apos;][&apos;PID.22&apos;][&apos;PID.22.1&apos;] = msg[&apos;row&apos;][&apos;column20&apos;].toString();
+	tmp[&apos;PID&apos;][&apos;PID.22&apos;][&apos;PID.22.2&apos;] = msg[&apos;row&apos;][&apos;column21&apos;].toString();
+	tmp[&apos;PID&apos;][&apos;PID.22&apos;][&apos;PID.22.3&apos;] = msg[&apos;row&apos;][&apos;column22&apos;].toString();
+
+	//ORC
+	//tmp[&apos;ORC&apos;][&apos;ORC.2&apos;] = msg[&apos;row&apos;][&apos;column33&apos;].toString();
+	tmp[&apos;ORC&apos;][&apos;ORC.2&apos;][&apos;ORC.2.1&apos;] = msg[&apos;row&apos;][&apos;column23&apos;].toString();
+	tmp[&apos;ORC&apos;][&apos;ORC.3&apos;][&apos;ORC.3.1&apos;] = msg[&apos;row&apos;][&apos;column24&apos;].toString();
+	
+	//Test Time 
+	//value in CSV 8:00 &gt; 80000 | 13:00 &gt; 130000
+	var orc_time = HL7Time(msg[&apos;row&apos;][&apos;column26&apos;].toString());
+	//logger.info(&apos;time provided: &apos;+ orc_time.toString());
+	//orc_time = HL7Time(orc_time);
+	//logger.info(&apos;time transformed: &apos;+ orc_time.toString());		
+	//0 is not passed in time value less than 10
+	//if (orc_time.length &lt; 5 ) { orc_time = &apos;0&apos; + orc_time;}
+      //test Date
+	var orc_datetime = msg[&apos;row&apos;][&apos;column25&apos;].toString() + &apos;&apos; + orc_time;
+	//orc_datetime = DateUtil.getDate(&quot;yyyyMMddHHmmss&quot;, orc_datetime.replace(&apos;:&apos;,&apos;&apos;));	
+	tmp[&apos;ORC&apos;][&apos;ORC.9&apos;] = orc_datetime;
+	
+	//Ordering Provider ID
+	tmp[&apos;ORC&apos;][&apos;ORC.12&apos;][&apos;ORC.12.1&apos;] = msg[&apos;row&apos;][&apos;column27&apos;].toString();
+	tmp[&apos;ORC&apos;][&apos;ORC.12&apos;][&apos;ORC.12.2&apos;] = msg[&apos;row&apos;][&apos;column28&apos;].toString();
+	tmp[&apos;ORC&apos;][&apos;ORC.12&apos;][&apos;ORC.12.3&apos;] = msg[&apos;row&apos;][&apos;column29&apos;].toString();
+	//tmp[&apos;ORC&apos;][&apos;ORC.12&apos;][&apos;ORC.12.3&apos;]  = &quot;2.16.840.1.113883.3.7377.40147&quot;;
+	//tmp[&apos;ORC&apos;][&apos;ORC.12&apos;][&apos;ORC.12.4&apos;]  = &quot;ISO&quot;;
+
+	//Ordering Facility
+	tmp[&apos;ORC&apos;][&apos;ORC.21&apos;][&apos;ORC.21.1&apos;] = msg[&apos;row&apos;][&apos;column30&apos;].toString();
+	//Ordering Facility Address
+	tmp[&apos;ORC&apos;][&apos;ORC.22&apos;][&apos;ORC.22.1&apos;] = msg[&apos;row&apos;][&apos;column31&apos;].toString();
+	//Ordering Phone
+	tmp[&apos;ORC&apos;][&apos;ORC.23&apos;][&apos;ORC.23.2&apos;] = &quot;WPN&quot;;
+	var work_phone = msg[&apos;row&apos;][&apos;column32&apos;].toString().replace(&apos;-&apos;, &apos;&apos;);
+	
+	tmp[&apos;ORC&apos;][&apos;ORC.23&apos;][&apos;ORC.23.6&apos;] = work_phone.replace(&apos;-&apos;, &apos;&apos;).substr(0,3); //808
+	tmp[&apos;ORC&apos;][&apos;ORC.23&apos;][&apos;ORC.23.7&apos;] = work_phone.replace(&apos;-&apos;, &apos;&apos;).substr(4,7);//456-7890
+	
+	//OBR
+	//tmp[&apos;OBR&apos;][&apos;OBR.1&apos;][&apos;OBR.1.1&apos;] = &quot;&quot;;
+	tmp[&apos;OBR&apos;][&apos;OBR.2&apos;][&apos;OBR.2.1&apos;] = msg[&apos;row&apos;][&apos;column33&apos;].toString();
+	tmp[&apos;OBR&apos;][&apos;OBR.3&apos;][&apos;OBR.3.1&apos;] = msg[&apos;row&apos;][&apos;column34&apos;].toString();	
+	//filler order number
+	tmp[&apos;OBR&apos;][&apos;OBR.3&apos;][&apos;OBR.3.1&apos;] = msg[&apos;row&apos;][&apos;column34&apos;].toString();
+	//identifier
+	tmp[&apos;OBR&apos;][&apos;OBR.4&apos;][&apos;OBR.4.1&apos;] = msg[&apos;row&apos;][&apos;column35&apos;].toString();
+	
+	//observation date
+	//tmp[&apos;OBR&apos;][&apos;OBR.7&apos;][&apos;OBR.7.1&apos;] = msg[&apos;row&apos;][&apos;column36&apos;].toString() + &apos; &apos; + msg[&apos;row&apos;][&apos;column37&apos;].toString();
+	var obr_datetime = msg[&apos;row&apos;][&apos;column36&apos;].toString() +&apos;&apos;+ HL7Time(msg[&apos;row&apos;][&apos;column37&apos;].toString());
+	//obr_datetime = DateUtil.getDate(&quot;yyyyMMddHHmmss&quot;, obr_datetime.replace(&apos;:&apos;,&apos;&apos;));	
+	tmp[&apos;OBR&apos;][&apos;OBR.7&apos;][&apos;OBR.7.1&apos;] = obr_datetime;
+
+	
+	
+	//collector identifier
+	tmp[&apos;OBR&apos;][&apos;OBR.10&apos;][&apos;OBR.10.1&apos;] = msg[&apos;row&apos;][&apos;column38&apos;].toString();
+	//provider id
+	tmp[&apos;OBR&apos;][&apos;OBR.16&apos;][&apos;OBR.16.1&apos;] = msg[&apos;row&apos;][&apos;column39&apos;].toString();
+	//lastname
+	tmp[&apos;OBR&apos;][&apos;OBR.16&apos;][&apos;OBR.16.2&apos;] = msg[&apos;row&apos;][&apos;column40&apos;].toString();
+	//firstname
+	tmp[&apos;OBR&apos;][&apos;OBR.16&apos;][&apos;OBR.16.3&apos;] = msg[&apos;row&apos;][&apos;column41&apos;].toString();
+
+	//time date of results
+	var results_datetime = msg[&apos;row&apos;][&apos;column42&apos;].toString() + &apos;&apos; + HL7Time(msg[&apos;row&apos;][&apos;column43&apos;].toString());
+	//results_datetime = DateUtil.getDate(&quot;yyyyMMddHHmmss&quot;, results_datetime.replace(&apos;:&apos;,&apos;&apos;));	
+	tmp[&apos;OBR&apos;][&apos;OBR.22&apos;][&apos;OBR.22.1&apos;] = results_datetime;
+
+	//OBX ID, Code, Value
+	tmp[&apos;OBX&apos;][&apos;OBX.3&apos;][&apos;OBX.3.1&apos;] = msg[&apos;row&apos;][&apos;column44&apos;].toString();
+	tmp[&apos;OBX&apos;][&apos;OBX.5&apos;][&apos;OBX.5.1&apos;] = msg[&apos;row&apos;][&apos;column45&apos;].toString();
+	tmp[&apos;OBX&apos;][&apos;OBX.5&apos;][&apos;OBX.5.2&apos;] = msg[&apos;row&apos;][&apos;column46&apos;].toString();	
+	tmp[&apos;OBX&apos;][&apos;OBX.5&apos;][&apos;OBX.5.3&apos;] = msg[&apos;row&apos;][&apos;column47&apos;].toString();	
+
+	tmp[&apos;OBX&apos;][&apos;OBX.11&apos;][&apos;OBX.11.1&apos;] = &quot;F&quot;;	
+	
+	//OBX date time Observations
+	var obx_datetime_o = msg[&apos;row&apos;][&apos;column48&apos;].toString() + &apos;&apos; + HL7Time(msg[&apos;row&apos;][&apos;column49&apos;].toString());
+	//obx_datetime_o =  DateUtil.getDate(&quot;yyyyMMddHHmmss&quot;, obx_datetime_o.replace(&apos;:&apos;,&apos;&apos;));
+	tmp[&apos;OBX&apos;][&apos;OBX.14&apos;][&apos;OBX.14.1&apos;] = obx_datetime_o;
+	
+	//OBX date time Analysis
+	var obx_datetime_a = msg[&apos;row&apos;][&apos;column50&apos;].toString() + &apos;&apos; + HL7Time(msg[&apos;row&apos;][&apos;column51&apos;].toString());
+	//obx_datetime_a = DateUtil.getDate(&quot;yyyyMMddHHmmss&quot;, obx_datetime_a.replace(&apos;:&apos;,&apos;&apos;));
+	tmp[&apos;OBX&apos;][&apos;OBX.19&apos;][&apos;OBX.19.1&apos;] = obx_datetime_a;
+
+	tmp[&apos;OBX&apos;][&apos;OBX.23&apos;][&apos;OBX.23.1&apos;] = msg[&apos;row&apos;][&apos;column52&apos;].toString();
+	tmp[&apos;OBX&apos;][&apos;OBX.23&apos;][&apos;OBX.23.10&apos;] = msg[&apos;row&apos;][&apos;column53&apos;].toString();
+	
+	tmp[&apos;OBX&apos;][&apos;OBX.24&apos;][&apos;OBX.24.1&apos;] = msg[&apos;row&apos;][&apos;column54&apos;].toString();
+	tmp[&apos;OBX&apos;][&apos;OBX.25&apos;][&apos;OBX.25.1&apos;] = msg[&apos;row&apos;][&apos;column55&apos;].toString();
+
+	//SPM
+	//date time
+	tmp[&apos;SPM&apos;][&apos;SPM.2&apos;][&apos;SPM.2.2&apos;][&apos;SPM.2.2.1&apos;]= msg[&apos;row&apos;][&apos;column56&apos;].toString();
+	
+	var spc_col_dt = msg[&apos;row&apos;][&apos;column58&apos;].toString() + &apos;&apos; + HL7Time(msg[&apos;row&apos;][&apos;column59&apos;].toString());
+	//spc_col_dt = DateUtil.getDate(&quot;yyyyMMddHHmmss&quot;, spc_col_dt.replace(&apos;:&apos;,&apos;&apos;));
+	tmp[&apos;SPM&apos;][&apos;SPM.17&apos;][&apos;SPM.17.1&apos;] = spc_col_dt;
+	
+	var spc_dt = msg[&apos;row&apos;][&apos;column60&apos;].toString() + &apos;&apos; + HL7Time(msg[&apos;row&apos;][&apos;column61&apos;].toString());
+	//spc_dt = DateUtil.getDate(&quot;yyyyMMddHHmmss&quot;, spc_dt.replace(&apos;:&apos;,&apos;&apos;));
+	tmp[&apos;SPM&apos;][&apos;SPM.18&apos;][&apos;SPM.18.1&apos;] = spc_dt;
+	
+	tmp[&apos;SPM&apos;][&apos;SPM.4&apos;][&apos;SPM.4.1&apos;] = msg[&apos;row&apos;][0][&apos;column57&apos;].toString();
+	//logger.info(&apos;PID Segment: &apos;+tmp[&apos;PID&apos;].toString());
+
+	// write out the HL7
+	hl7_xml = tmp;</script>
+    </com.mirth.connect.plugins.javascriptstep.JavaScriptStep>
+  </elements>
+  <inboundTemplate encoding="base64">TVNIXzRfMl9TZW5kaW5nX0ZhY2lsaXR5X1VuaXZlcnNhbF9JRCxTRlRfMl9Tb2Z0d2FyZV9DZXJ0
+aWZpZWRfVmVyc2lvbixTRlRfM19Tb2Z0d2FyZV9Qcm9kdWN0X05hbWUsU0ZUXzRfU29mdHdhcmVf
+QmluYXJ5X0lELFNGVF82X1NvZnR3YXJlX0luc3RhbGxfRGF0ZSxQSURfM18xX1BhdGllbnRfSUQs
+UElEXzVfUGF0aWVudF9OYW1lLFBJRF83X0RhdGUvVGltZV9vZl9CaXJ0aCxQSURfOF9BZG1pbmlz
+dHJhdGl2ZV9TZXgsUElEXzEwXzFfUGF0aWVudF9SYWNlX0lELFBJRF8xMF8yX1BhdGllbnRfUmFj
+ZSxQSURfMTBfM19QYXRpZW50X1JhY2VfQ29kaW5nX1N5c3RlbSxQSURfMTFfMV9QYXRpZW50X1N0
+cmVldF9BZGRyZXNzMSxQSURfMTFfMl9QYXRpZW50X1N0cmVldF9BZGRyZXNzMixQSURfMTFfM19Q
+YXRpZW50X0NpdHksUElEXzExXzRfUGF0aWVudF9TdGF0ZSxQSURfMTFfNV9QYXRpZW50X1ppcCxQ
+SURfMTNfNl9BcmVhX0NpdHlfQ29kZSxQSURfMTNfN19Mb2NhbF9OdW1iZXIsUElEXzIyXzFfUGF0
+aWVudF9FdGhuaWNpdHlfSUQsUElEXzIyXzJfUGF0aWVudF9FdGhuaWNpdHksUElEXzIyXzNfUGF0
+aWVudF9FdGhuaWNpdHlfQ29kaW5nX1N5c3RlbSxPUkNfMl8xX1BsYWNlcl9PcmRlcl9OdW1iZXIs
+T1JDXzNfMV9GaWxsZXJfT3JkZXJfTnVtYmVyLE9SQ185X1Rlc3RfT3JkZXJfRGF0ZSxPUkNfOV9U
+ZXN0X09yZGVyX1RpbWUsT1JDXzEyXzFfT3JkZXJfUHJvdmlkZXJfSUQsT1JDXzEyXzJfT3JkZXJf
+UHJvdmlkZXJfTGFzdF9OYW1lLE9SQ18xMl8zX09yZGVyX1Byb3ZpZGVyX0ZpcnN0X05hbWUsT1JD
+XzIxX09yZGVyaW5nX0ZhY2lsaXR5X05hbWUsT1JDXzIyX09yZGVyaW5nX0ZhY2lsaXR5X0FkZHJl
+c3MsT1JDXzIzX09yZGVyaW5nX0ZhY2lsaXR5X1Bob25lLE9CUl8yXzFfUGxhY2VyX09yZGVyX051
+bWJlcixPQlJfM18xX0ZpbGxlcl9PcmRlcl9OdW1iZXIsT0JSXzRfVW5pdmVyc2FsX1NlcnZpY2Vf
+SWRlbnRpZmllcixPQlJfN19PYnNlcnZhdGlvbl9EYXRlLE9CUl83X09ic2VydmF0aW9uX1RpbWUs
+T0JSXzEwX0NvbGxlY3Rvcl9JZGVudGlmaWVyLE9CUl8xNl8xX09yZGVyX1Byb3ZpZGVyX0lELE9C
+Ul8xNl8yX09yZGVyX1Byb3ZpZGVyX0xhc3RfTmFtZSxPQlJfMTZfM19PcmRlcl9Qcm92aWRlcl9G
+aXJzdF9OYW1lLE9CUl8yMl9SZXN1bHRzX1JlcG9ydF9EYXRlLE9CUl8yMl9SZXN1bHRzX1JlcG9y
+dF9UaW1lLE9CWF8zX09ic2VydmF0aW9uX0lkZW50aWZpZXIsT0JYXzVfMV9PYnNlcnZhdGlvbl9D
+b2RlLE9CWF81XzJfT2JzZXJ2YXRpb24sT0JYXzVfM19PYnNlcnZhdGlvbl9Db2RlX1R5cGUsT0JY
+XzE0X09ic2VydmF0aW9uX0RhdGUsT0JYXzE0X09ic2VydmF0aW9uX1RpbWUsT0JYXzE5X0FuYWx5
+c2lzX0RhdGUsT0JYXzE5X0FuYWx5c2lzX1RpbWUsT0JYXzIzXzFfUGVyZm9ybWluZ19Pcmdhbml6
+YXRpb25fTmFtZSxPQlhfMjNfMTBfUGVyZm9ybWluZ19Pcmdhbml6YXRpb25fSWRlbnRpZmllcixP
+QlhfMjRfUGVyZm9ybWluZ19Pcmdhbml6YXRpb25fQWRkcmVzcyxPQlhfMjVfUGVyZm9ybWluZ19P
+cmdhbml6YXRpb25fTWVkaWNhbF9EaXJlY3RvcixTUE1fMl8yX1NwZWNpbWVuX0lELFNQTV80X1Nw
+ZWNpbWVuX1R5cGUsU1BNXzE3X1NwZWNpbWVuX0NvbGxlY3Rpb25fRGF0ZSxTUE1fMTdfU3BlY2lt
+ZW5fQ29sbGVjdGlvbl9UaW1lLFNQTV8xOF9TcGVjaW1lbl9SZWNlaXZlZF9EYXRlLFNQTV8xOF9T
+cGVjaW1lbl9SZWNlaXZlZF9UaW1lCjEyRDIxODEzNTgsOC42LjMsUG9seXRlY2ggTElTLDguNi4z
+LDIwMjAwODI0LDIwMCxSdWJibGVeQmFybmV5XkEsMjAwMDA5MjEsTSwyMTA2LTMsV2hpdGUsQ0RD
+UkVDLDEyMzQgQmVkcm9jayBTdC4sU3VpdGUgMzAxLEJlZHJvY2ssSEksMTIzNDUsODA4LDIyMjQ0
+NDQsMjE4Ni01LE5vbiBIaXNwYW5pYyBvciBMYXRpbm8sQ0RDUkVDLDI2OTIwMDAxMCwyNjkyMDAw
+MTAsMjAyMDA5MjUsMTE6MzQsMTIzNDU2Nzg5MCxTbWl0aCxKYW5lLERMUy9RdWVlbnMsMTIzNCBT
+b21lIFN0Ll5TdWl0ZSAxMDBeSG9ub2x1bHVeSEleOTY4MTMsODA4LTU1NS01NTU1LDI2OTIwMDAx
+MCwyNjkyMDAwMTAsOTQ1MDAtNl5TQVJTLUNvVi0yIFJOQSBQQ1JeTE5eQ09WSUReU0FSUy1Db1Yt
+MiBSTkEgUENSXkwsMjAyMDA5MjUsMTE6MzQsSktXLDEyMzQ1Njc4OTAsU21pdGgsSmFuZSwyMDIw
+MDkyNSwxMjo1MCw5NDUwMC02XlNBUlMtQ29WLTIgUk5BIFBDUl5MTl5DT1ZJRF5TQVJTLUNvVi0y
+IFJOQSBQQ1JeTCwyNjAzODUwMDksTkVHLFNDVCwyMDIwMDkyNSwxMTozNCwyMDIwMDkyNSwxMToz
+NCxUcm9waWNhbCBNZWRpY2luZSBDbGluaWNhbCBMYWJvcmF0b3J5LDEyRDIxODEzNTgsNjUxIEls
+YWxvIFN0cmVldCBCaW9TY2llbmNlIEJsZGdeUm0uIDMzM15Ib25vbHVsdV5ISV45NjgxMyxeTGli
+ZXJtYW5eTWljaGFlbCwyNjkyMDAwMTAsMjU4NTAwMDAxXk5hc29waGFyeW5nZWFsIFN3YWJeU0NU
+LDIwMjAwOTI1LDExOjM0LDIwMjAwOTI1LDExOjM0CjEyRDIxODEzNTgsOC42LjMsUG9seXRlY2gg
+TElTLDguNi4zLDIwMjAwODI0LDIwMDEsUnViYmxlXkJldHR5XkIsMjAwMDEwMTAsRiwyMDI4LTks
+QXNpYW4sQ0RDUkVDLDEyMzQgQmVkcm9jayBTdC4sU3VpdGUgMzAxLEJlZHJvY2ssSEksMTIzNDUs
+ODA4LDQ0NDIyMjIsMjE4Ni01LE5vbiBIaXNwYW5pYyBvciBMYXRpbm8sQ0RDUkVDLDI2OTIwMDAx
+MSwyNjkyMDAwMTEsMjAyMDA5MjUsMTI6MzksMTIzNDU2Nzg5MCxTbWl0aCxKYW5lLERMUy9RdWVl
+bnMsMTIzNCBTb21lIFN0Ll5TdWl0ZSAxMDBeSG9ub2x1bHVeSEleOTY4MTMsODA4LTU1NS01NTU1
+LDI2OTIwMDAxMSwyNjkyMDAwMTEsOTQ1MDAtNl5TQVJTLUNvVi0yIFJOQSBQQ1JeTE5eQ09WSURe
+U0FSUy1Db1YtMiBSTkEgUENSXkwsMjAyMDA5MjUsMTI6MzksSktXLDEyMzQ1Njc4OTAsU21pdGgs
+SmFuZSwyMDIwMDkyNSwxMjo1MCw5NDUwMC02XlNBUlMtQ29WLTIgUk5BIFBDUl5MTl5DT1ZJRF5T
+QVJTLUNvVi0yIFJOQSBQQ1JeTCwxMDgyODAwNCxQT1MsU0NULDIwMjAwOTI1LDEyOjM5LDIwMjAw
+OTI1LDEyOjM5LFRyb3BpY2FsIE1lZGljaW5lIENsaW5pY2FsIExhYm9yYXRvcnksMTJEMjE4MTM1
+OCw2NTEgSWxhbG8gU3RyZWV0IEJpb1NjaWVuY2UgQmxkZ15SbS4gMzMzXkhvbm9sdWx1XkhJXjk2
+ODEzLF5MaWJlcm1hbl5NaWNoYWVsLDI2OTIwMDAxMSwyNTg1MDAwMDFeTmFzb3BoYXJ5bmdlYWwg
+U3dhYl5TQ1QsMjAyMDA5MjUsMTI6MzksMjAyMDA5MjUsMTI6MzkKMTJEMjE4MTM1OCw4LjYuMyxQ
+b2x5dGVjaCBMSVMsOC42LjMsMjAyMDA4MjQsMjAwMixGbGludHN0b25lXkZyZWReQywxOTk5MDMx
+NSxNLDIwNTQtNSxCbGFjayBvciBBZnJpY2FuIEFtZXJpY2FuLENEQ1JFQyw0MzIxIEJlZHJvY2sg
+U3QuLFN1aXRlIDIwMSxCZWRyb2NrLEhJLDEyMzQ1LDgwOCw3Nzc0NDQ0LDIxMzUtMixIaXNwYW5p
+YyBvciBMYXRpbm8sQ0RDUkVDLDI2OTIwMDAxMiwyNjkyMDAwMTIsMjAyMDA5MjUsMTI6NDAsMTIz
+NDU2Nzg5MCxTbWl0aCxKYW5lLERMUy9RdWVlbnMsMTIzNCBTb21lIFN0Ll5TdWl0ZSAxMDBeSG9u
+b2x1bHVeSEleOTY4MTMsODA4LTU1NS01NTU1LDI2OTIwMDAxMiwyNjkyMDAwMTIsOTQ1MDAtNl5T
+QVJTLUNvVi0yIFJOQSBQQ1JeTE5eQ09WSUReU0FSUy1Db1YtMiBSTkEgUENSXkwsMjAyMDA5MjUs
+MTI6NDAsSktXLDEyMzQ1Njc4OTAsU21pdGgsSmFuZSwyMDIwMDkyNSwxMjo1MCw5NDUwMC02XlNB
+UlMtQ29WLTIgUk5BIFBDUl5MTl5DT1ZJRF5TQVJTLUNvVi0yIFJOQSBQQ1JeTCw4MjMzNDAwNCxJ
+TkQsU0NULDIwMjAwOTI1LDEyOjQwLDIwMjAwOTI1LDEyOjQwLFRyb3BpY2FsIE1lZGljaW5lIENs
+aW5pY2FsIExhYm9yYXRvcnksMTJEMjE4MTM1OCw2NTEgSWxhbG8gU3RyZWV0IEJpb1NjaWVuY2Ug
+QmxkZ15SbS4gMzMzXkhvbm9sdWx1XkhJXjk2ODEzLF5MaWJlcm1hbl5NaWNoYWVsLDI2OTIwMDAx
+MiwyNTg1MDAwMDFeTmFzb3BoYXJ5bmdlYWwgU3dhYl5TQ1QsMjAyMDA5MjUsMTI6NDAsMjAyMDA5
+MjUsMTI6NDAKMTJEMjE4MTM1OCw4LjYuMyxQb2x5dGVjaCBMSVMsOC42LjMsMjAyMDA4MjQsMjAw
+MyxGbGludHN0b25lXldpbG1hXkQsMjAwMDA0MDIsRixVTkssVW5rbm93bixOVUxMRkwsNDMyMSBC
+ZWRyb2NrIFN0LixTdWl0ZSAyMDEsQmVkcm9jayxISSwxMjM0NSw4MDgsMzMzMTExMSxVTkssVW5r
+bm93bixOVUxMRkwsMjcwMjAwMDEzLDI3MDIwMDAxMywyMDIwMDkyNiw4OjQxLDEyMzQ1Njc4OTAs
+U21pdGgsSmFuZSxETFMvUXVlZW5zLDEyMzQgU29tZSBTdC5eU3VpdGUgMTAwXkhvbm9sdWx1XkhJ
+Xjk2ODEzLDgwOC01NTUtNTU1NSwyNzAyMDAwMTMsMjcwMjAwMDEzLDk0NTAwLTZeU0FSUy1Db1Yt
+MiBSTkEgUENSXkxOXkNPVklEXlNBUlMtQ29WLTIgUk5BIFBDUl5MLDIwMjAwOTI2LDg6NDEsSktX
+LDEyMzQ1Njc4OTAsU21pdGgsSmFuZSwyMDIwMDkyNiw4OjQyLDk0NTAwLTZeU0FSUy1Db1YtMiBS
+TkEgUENSXkxOXkNPVklEXlNBUlMtQ29WLTIgUk5BIFBDUl5MLDI2MDM4NTAwOSxORUcsU0NULDIw
+MjAwOTI2LDg6NDEsMjAyMDA5MjYsODo0MSxUcm9waWNhbCBNZWRpY2luZSBDbGluaWNhbCBMYWJv
+cmF0b3J5LDEyRDIxODEzNTgsNjUxIElsYWxvIFN0cmVldCBCaW9TY2llbmNlIEJsZGdeUm0uIDMz
+M15Ib25vbHVsdV5ISV45NjgxMyxeTGliZXJtYW5eTWljaGFlbCwyNzAyMDAwMTMsMjU4NTAwMDAx
+Xk5hc29waGFyeW5nZWFsIFN3YWJeU0NULDIwMjAwOTI2LDg6NDEsMjAyMDA5MjYsODo0MQo=</inboundTemplate>
+  <outboundTemplate encoding="base64">TVNIfF5+XCYjfFRNQ14yLjE2Ljg0MC4xLjExMzg4My4zLjczNzcuNDAxNDdeSVNPfFRNQ14xMkQy
+MTgxMzU4XkNMSUF8SERPSF4yLjE2Ljg0MC4xLjExMzg4My4zLjM1NTEuMl5JU098SERPSF4yLjE2
+Ljg0MC4xLjExMzg4My4zLjM1NTEuMV5JU098fHxPUlVeUjAxXk9SVV9SMDF8fFB8Mi41LjF8fHxO
+RXx8fHx8fFBITGFiUmVwb3J0LU5vQWNrXkhMN14yLjE2Ljg0MC4xLjExMzg4My45LjExXklTTwpT
+RlR8MXw4LjYuM3xQb2x5dGVjaCBMSVN8OC42LjN8fDIwMjAwODI0ClBJRHwxfHxeXl4mMi4xNi44
+NDAuMS4xMTM4ODMuMy43Mzc3LjQwMTQ3JklTT15efHxeXnx8fHx8Xl58Xl5eXnx8Xl5eXl5efHx8
+fHx8fHx8Xl58Ck9SQ3xSRXxeXjIuMTYuODQwLjEuMTEzODgzLjMuNzM3Ny40MDE0N15JU098XkxJ
+U14yLjE2Ljg0MC4xLjExMzg4My4zLjczNzcuNDAxNDdeSVNPfHx8fHx8fHx8Xl5eXl5eXl5OUEkm
+Mi4xNi44NDAuMS4xMTM4ODMuMy43Mzc3LjQwMTQ3JklTT15MXl5eTlBJXnx8fHx8fHx8fHx8fApP
+QlJ8MXxeXjIuMTYuODQwLjEuMTEzODgzLjMuNzM3Ny40MDE0N15JU098XkxJU14yLjE2Ljg0MC4x
+LjExMzg4My4zLjczNzcuNDAxNDdeSVNPfF5eXl5efHx8fHx8fHx8fHx8Xl5eXl5eXl5OUEkmMi4x
+Ni44NDAuMS4xMTM4ODMuMy43Mzc3LjQwMTQ3JklTT15MXl5eTlBJXnx8fHx8fHx8fEZ8fHx8fApP
+Qlh8MXxDV0V8Xl5eXl58fF5efHx8fHx8fHx8fHx8fHx8fHx8VHJvcGljYWwgTWVkaWNpbmUgQ2xp
+bmljYWwgTGFib3JhdG9yeV5MXl5eXkNMSUEmMi4xNi44NDAuMS4xMTM4ODMuMy43Mzc3LjQwMTQ3
+JklTT15YWF5eXnxeXl5efF5efApTUE18MXxeJiYyLjE2Ljg0MC4xLjExMzg4My4zLjczNzcuNDAx
+NDcmSVNPfHxeXnx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHwK</outboundTemplate>
+  <inboundDataType>DELIMITED</inboundDataType>
+  <outboundDataType>HL7V2</outboundDataType>
+  <inboundProperties class="com.mirth.connect.plugins.datatypes.delimited.DelimitedDataTypeProperties" version="3.9.1">
+    <serializationProperties class="com.mirth.connect.plugins.datatypes.delimited.DelimitedSerializationProperties" version="3.9.1">
+      <columnDelimiter>,</columnDelimiter>
+      <recordDelimiter>\n</recordDelimiter>
+      <quoteToken>&quot;</quoteToken>
+      <escapeWithDoubleQuote>true</escapeWithDoubleQuote>
+      <quoteEscapeToken>\</quoteEscapeToken>
+      <numberedRows>false</numberedRows>
+      <ignoreCR>true</ignoreCR>
+    </serializationProperties>
+    <deserializationProperties class="com.mirth.connect.plugins.datatypes.delimited.DelimitedDeserializationProperties" version="3.9.1">
+      <columnDelimiter>,</columnDelimiter>
+      <recordDelimiter>\n</recordDelimiter>
+      <quoteToken>&quot;</quoteToken>
+      <escapeWithDoubleQuote>true</escapeWithDoubleQuote>
+      <quoteEscapeToken>\</quoteEscapeToken>
+    </deserializationProperties>
+    <batchProperties class="com.mirth.connect.plugins.datatypes.delimited.DelimitedBatchProperties" version="3.9.1">
+      <splitType>Record</splitType>
+      <batchSkipRecords>1</batchSkipRecords>
+      <batchMessageDelimiter></batchMessageDelimiter>
+      <batchMessageDelimiterIncluded>false</batchMessageDelimiterIncluded>
+      <batchGroupingColumn></batchGroupingColumn>
+      <batchScript></batchScript>
+    </batchProperties>
+  </inboundProperties>
+  <outboundProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2DataTypeProperties" version="3.9.1">
+    <serializationProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2SerializationProperties" version="3.9.1">
+      <handleRepetitions>true</handleRepetitions>
+      <handleSubcomponents>true</handleSubcomponents>
+      <useStrictParser>false</useStrictParser>
+      <useStrictValidation>false</useStrictValidation>
+      <stripNamespaces>true</stripNamespaces>
+      <segmentDelimiter>\r</segmentDelimiter>
+      <convertLineBreaks>true</convertLineBreaks>
+    </serializationProperties>
+    <deserializationProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2DeserializationProperties" version="3.9.1">
+      <useStrictParser>false</useStrictParser>
+      <useStrictValidation>false</useStrictValidation>
+      <segmentDelimiter>\r</segmentDelimiter>
+    </deserializationProperties>
+    <batchProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2BatchProperties" version="3.9.1">
+      <splitType>MSH_Segment</splitType>
+      <batchScript></batchScript>
+    </batchProperties>
+    <responseGenerationProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2ResponseGenerationProperties" version="3.9.1">
+      <segmentDelimiter>\r</segmentDelimiter>
+      <successfulACKCode>AA</successfulACKCode>
+      <successfulACKMessage></successfulACKMessage>
+      <errorACKCode>AE</errorACKCode>
+      <errorACKMessage>An Error Occurred Processing Message.</errorACKMessage>
+      <rejectedACKCode>AR</rejectedACKCode>
+      <rejectedACKMessage>Message Rejected.</rejectedACKMessage>
+      <msh15ACKAccept>false</msh15ACKAccept>
+      <dateFormat>yyyyMMddHHmmss.SSS</dateFormat>
+    </responseGenerationProperties>
+    <responseValidationProperties class="com.mirth.connect.plugins.datatypes.hl7v2.HL7v2ResponseValidationProperties" version="3.9.1">
+      <successfulACKCode>AA,CA</successfulACKCode>
+      <errorACKCode>AE,CE</errorACKCode>
+      <rejectedACKCode>AR,CR</rejectedACKCode>
+      <validateMessageControlId>true</validateMessageControlId>
+      <originalMessageControlId>Destination_Encoded</originalMessageControlId>
+      <originalIdMapVariable></originalIdMapVariable>
+    </responseValidationProperties>
+  </outboundProperties>
+</transformer>
